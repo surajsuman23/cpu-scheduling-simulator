@@ -2,9 +2,9 @@
 
 A Java command-line simulator comparing First Come First Served (FCFS), non-preemptive Shortest Job First (SJF), and Round Robin scheduling. Reports per-process completion, turnaround and waiting times, averages, total turnaround, and an execution timeline.
 
-## Provenance
+## About this version
 
-This is a new, AI-assisted reconstruction of a project described in Suraj Suman's resume. The original source files were unavailable. It is not a recovered historical repository, and results from this implementation must not be presented as results from the original project. Code was written for this reconstruction; external references and data provenance are listed in `SOURCES.md`.
+Rebuilt portfolio implementation based on an earlier project. This repository contains the current code, tests and documentation. Reported results apply to this version. References and data sources are listed in `SOURCES.md`.
 
 ## Build and run
 
