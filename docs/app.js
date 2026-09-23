@@ -1,42 +1,22 @@
-import {schedule} from './scheduler.mjs';
+import { schedule } from './scheduler.mjs';
 const $ = id => document.getElementById(id);
-const esc = value => String(value).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const percent = value => (value*100).toFixed(1)+'%';
-const table = (headers, rows) => '<div class="table-wrap"><table><thead><tr>'+headers.map(x=>'<th scope="col">'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
-const stat = (value,label)=>'<div class="stat"><strong>'+esc(value)+'</strong><span>'+esc(label)+'</span></div>';
-let app, latest;
-const configs = {
- cpu:{title:'CPU scheduling simulator',intro:'Compare how FCFS, Shortest Job First and Round Robin share a single CPU. Change the workload to explore waiting times and execution order.',repo:'cpu-scheduling-simulator',eyebrow:'OPERATING SYSTEMS / SCHEDULING',notice:'Single CPU, one burst per process, zero context-switch cost. SJF is non-preemptive. The online demo runs a JavaScript implementation checked against the Java simulator. The Java source is available on GitHub.',fields:'<label>Processes (CSV)<textarea name="processes" spellcheck="false" required>id,arrival,burst\nP1,0,5\nP2,1,3\nP3,2,1</textarea></label><label>Round Robin quantum<input name="quantum" type="number" min="1" max="1000" step="1" value="2" required></label>'},
-};
-function render(r){
- let out='';
- if(app==='cpu'){
-   out='<p class="meta">All three algorithms computed for '+esc(r.processes)+' processes.</p>';
-   for(const a of r.results){out+='<h3>'+esc(a.algorithm.toUpperCase())+'</h3><div class="summary">'+stat(a.average_waiting,'Average waiting time')+stat(a.average_turnaround,'Average turnaround')+'</div><div class="timeline" aria-label="Execution timeline">'+a.timeline.map(s=>'<div class="slice" style="flex-grow:'+Math.min(s.end-s.start,20)+'"><b>'+esc(s.id)+'</b>'+s.start+' → '+s.end+'</div>').join('')+'</div>'+table(['Process','Arrival','Burst','Completion','Turnaround','Waiting'],a.metrics.map(m=>[m.id,m.arrival,m.burst,m.completion,m.turnaround,m.waiting]));}
- }else if(app==='diabetes'){
-   out='<div class="summary">'+stat(r.train_rows,'Training rows')+stat(r.test_rows,'Holdout rows')+stat(r.folds,'CV folds')+'</div><p>Selected by training CV recall: <strong>'+esc(r.selected_model)+'</strong></p>'+table(['Model','Accuracy','Precision','Recall','F1','ROC AUC'],Object.entries(r.models).map(([name,m])=>[name,percent(m.accuracy),percent(m.precision),percent(m.recall),percent(m.f1),m.roc_auc.toFixed(3)]))+'<h3>Holdout confusion matrices</h3>'+table(['Model','True negative','False positive','False negative','True positive'],Object.entries(r.models).map(([name,m])=>[name,m.confusion_matrix.tn,m.confusion_matrix.fp,m.confusion_matrix.fn,m.confusion_matrix.tp]))+'<p class="meta">'+esc(r.limitations)+'</p><a href="https://www.openml.org/d/37" target="_blank" rel="noopener">Dataset source ↗</a>';
- }else{
-   out='<div class="summary">'+stat(r.predicted_demo_label,'Predicted synthetic label')+'</div><h3>Nearest fictional facilities</h3>'+table(['Facility','Distance (km)','Latitude','Longitude'],r.nearby_fictional_hospitals.map(h=>[h.name,h.distance_km,h.latitude,h.longitude]))+'<h3>Model evaluation on synthetic data</h3>'+table(['Model','Training CV macro F1','Holdout accuracy','Holdout macro F1'],Object.entries(r.models).map(([n,m])=>[n,m.training_cv_macro_f1.toFixed(3),percent(m.test_accuracy),m.test_macro_f1.toFixed(3)]))+'<p class="meta">Selected model: '+esc(r.selected_model)+'. The low scores reflect this arbitrary synthetic task; they do not establish clinical usefulness.</p>';
- }
- $('results').innerHTML=out+'<p class="meta">Computed '+esc(new Date(r.computed_at).toLocaleTimeString())+' · '+esc(r.elapsed_seconds)+' seconds</p>';
- $('json').textContent=JSON.stringify(r,null,2); $('raw').hidden=false;
-}
-$('form').addEventListener('submit',async e=>{
- e.preventDefault();if(!app)return;
- const f=new FormData(e.target), data=Object.fromEntries(f); if(app==='hospital')data.symptoms=f.getAll('symptoms');
- $('run').disabled=true; $('status').textContent=app==='cpu'?'Computing…':'Loading Python / computing…'; $('results').innerHTML='<p class="empty">Running the project code…</p>'; $('raw').hidden=true;
- try {const r=app==='cpu'?schedule(data):await pythonRun(app,data);latest=r;render(r);$('status').textContent='Run completed';}
- catch(error){$('results').innerHTML='<p class="error">'+esc(error.message)+'</p>';$('status').textContent='Unable to run';}
- finally{$('run').disabled=false;}
-});
-$('download').addEventListener('click',()=>{if(!latest)return;const url=URL.createObjectURL(new Blob([JSON.stringify(latest,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=app+'-result.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-let worker, pending, runId=0;
-function pythonRun(app,data){
- if(!worker){worker=new Worker(new URL('./engine-worker.js',import.meta.url));
- worker.onmessage=({data:m})=>{if(m.progress){$('status').textContent=m.progress;return;}if(!pending||m.id!==pending.id)return;clearTimeout(pending.timer);const p=pending;pending=null;if(m.error)p.reject(Error(m.error));else p.resolve(m.result);};
- worker.onerror=()=>{if(pending){clearTimeout(pending.timer);pending.reject(Error('Python could not load. Please check your connection and try again.'));pending=null;}worker.terminate();worker=null;};}
- return new Promise((resolve,reject)=>{const id=++runId;const timer=setTimeout(()=>{worker.terminate();worker=null;pending=null;reject(Error('This run took too long. Try again on a desktop browser with a stable connection.'));},240000);pending={id,resolve,reject,timer};worker.postMessage({id,app,data});});
-}
-try{const path=location.pathname;app=document.body.dataset.app || (path.endsWith('diabetes.html')?'diabetes':path.endsWith('hospital.html')?'hospital':'cpu');const c=configs[app];document.title=c.title+' · Suraj Suman';for(const k of ['title','intro','notice','eyebrow'])$(k).textContent=c[k];$('fields').innerHTML=c.fields;$('source').href='https://github.com/surajsuman23/'+c.repo;document.querySelector('[data-app="'+app+'"]')?.setAttribute('aria-current','page');
-if(app==='cpu')$('form').requestSubmit();else $('results').innerHTML='<p class="empty">Choose your inputs and select Run project. The first run loads Python and the scientific packages in your browser.</p>';
-}catch(e){$('title').textContent='Unable to load the app';$('intro').textContent=e.message;}
+const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const names = ['First Come, First Served', 'Shortest Job First', 'Round Robin'];
+const presets = { classic: [[0,5],[1,3],[2,1]], idle: [[3,2],[8,3],[9,1]], convoy: [[0,12],[1,2],[2,1],[3,2]] };
+let latest = null, active = 0;
+function row(id, arrival=0, burst=1) { const tr=document.createElement('tr');tr.innerHTML=`<td><input aria-label="Process ID" data-field="id" value="${escape(id)}" maxlength="20" pattern="[A-Za-z0-9_-]+" required></td><td><input aria-label="Arrival time for ${escape(id)}" data-field="arrival" type="number" min="0" max="10000" step="1" value="${arrival}" required></td><td><input aria-label="Burst time for ${escape(id)}" data-field="burst" type="number" min="1" max="1000" step="1" value="${burst}" required></td><td><button type="button" data-remove aria-label="Remove ${escape(id)}">×</button></td>`;return tr; }
+function count(){const n=$('processes').children.length;$('count').textContent=n+' processes';$('add').disabled=n>=30;for(const b of document.querySelectorAll('[data-remove]'))b.disabled=n===1;}
+function dirty(){latest=null;$('download').hidden=true;$('status').textContent='Inputs changed';$('results').innerHTML='<div class="empty"><h3>Ready for a new comparison</h3><p>Run the simulation to update the results for this workload.</p></div>';}
+function loadPreset(){const values=presets[$('preset').value];$('processes').replaceChildren(...values.map(([a,b],i)=>row('P'+(i+1),a,b)));count();run();}
+$('add').addEventListener('click',()=>{if($('processes').children.length>=30)return;const used=[...document.querySelectorAll('[data-field=id]')].map(x=>x.value);let next=1;while(used.includes('P'+next))next++;const element=row('P'+next);$('processes').append(element);element.querySelector('input').focus();count();dirty();});
+$('processes').addEventListener('click',event=>{const button=event.target.closest('[data-remove]');if(button&&$('processes').children.length>1){button.closest('tr').remove();count();dirty();}});
+$('processes').addEventListener('input',dirty);$('quantum').addEventListener('input',dirty);$('preset').addEventListener('change',loadPreset);
+function table(headers,rows){return '<div class="table-wrap"><table><thead><tr>'+headers.map(h=>'<th scope="col">'+escape(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(v=>'<td>'+escape(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}
+function render(){const r=latest,a=r.results[active],end=a.timeline.at(-1).end;const colors=['#176b91','#8065aa','#af7026','#348470','#995b6d','#536fa7'];const ids=a.metrics.map(m=>m.id);const color=id=>id==='IDLE'?'#8b98a4':colors[ids.indexOf(id)%colors.length];const trace=a.timeline.slice(0,200);const last=trace.at(-1).end;
+$('results').innerHTML=`<div class="stats"><div class="stat"><strong>${r.processes}</strong><span>Processes</span></div><div class="stat"><strong>${end}</strong><span>Total elapsed time</span></div><div class="stat"><strong>${a.average_waiting}</strong><span>Selected average wait</span></div></div><div class="comparison">${table(['Algorithm','Avg. waiting','Avg. turnaround'],r.results.map((v,i)=>[names[i],v.average_waiting,v.average_turnaround]))}</div><div class="algorithm-heading"><h3>Execution details</h3><span class="meta">Time units</span></div><div class="tabs" aria-label="Algorithm selection">${['FCFS','SJF','Round Robin'].map((n,i)=>`<button type="button" data-algorithm="${i}" aria-pressed="${i===active}">${n}</button>`).join('')}</div><svg class="gantt" viewBox="0 0 1000 80" role="img" aria-label="${escape(names[active])} execution timeline"><title>Execution order. Detailed intervals are available below.</title>${trace.map(s=>{const x=s.start/last*1000,w=(s.end-s.start)/last*1000;return `<rect x="${x}" y="8" width="${w}" height="38" fill="${color(s.id)}" stroke="white" stroke-width="1"/><text x="${x+w/2}" y="32" text-anchor="middle">${w>32?escape(s.id):''}</text>`;}).join('')}<text class="axis" x="2" y="68">0</text><text class="axis" x="998" y="68" text-anchor="end">${last}</text></svg><div class="legend">${[...new Set(trace.map(s=>s.id))].map(id=>`<span><i style="background:${color(id)}"></i>${escape(id)}</span>`).join('')}</div>${a.timeline.length>200?'<p class="meta">The chart shows the first 200 intervals. Download JSON for the full trace.</p>':''}${table(['Process','Completion','Turnaround','Waiting'],a.metrics.map(m=>[m.id,m.completion,m.turnaround,m.waiting]))}<details><summary>Exact execution intervals</summary>${table(['Process','Start','End'],trace.map(s=>[s.id,s.start,s.end]))}</details><p class="meta">Calculated from your inputs · ${escape(names[active])}${active===2?' · quantum '+$('quantum').value:''}</p>`;
+$('download').hidden=false;}
+$('results').addEventListener('click',event=>{const button=event.target.closest('[data-algorithm]');if(button&&latest){active=Number(button.dataset.algorithm);render();$('results').querySelector(`[data-algorithm="${active}"]`).focus();}});
+function run(){try{const processes='id,arrival,burst\n'+[...$('processes').children].map(tr=>[...tr.querySelectorAll('input')].map(input=>input.value.trim()).join(',')).join('\n');latest=schedule({processes,quantum:$('quantum').value});$('error').hidden=true;render();$('status').textContent='Simulation complete';}catch(error){latest=null;$('error').hidden=false;$('error').textContent=error.message;$('download').hidden=true;$('status').textContent='Check your inputs';}}
+$('form').addEventListener('submit',event=>{event.preventDefault();run();});
+$('download').addEventListener('click',()=>{if(!latest)return;const url=URL.createObjectURL(new Blob([JSON.stringify(latest,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='cpu-simulation.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+loadPreset();
