@@ -1,6 +1,6 @@
 # CPU Scheduling Algorithm Simulator
 
-**[Open interactive demo](https://suraj-suman-projects.m16labs-0951.chatgpt.site/cpu.html)**
+**[Open interactive demo](https://suraj-cpu-simulator.m16labs-0951.chatgpt.site)**
 
 
 A Java command-line simulator comparing First Come First Served (FCFS), non-preemptive Shortest Job First (SJF), and Round Robin scheduling. Reports per-process completion, turnaround and waiting times, averages, total turnaround, and an execution timeline.
@@ -70,3 +70,7 @@ Open http://localhost:8080. Serve these files over HTTP or HTTPS; opening `index
 The online interface implements the same scheduling rules in JavaScript. Its process metrics and execution timelines were compared with `Scheduler.java` across 35 workloads and all three algorithms (105 comparisons). The original Java CLI remains the reference implementation. Enter a process CSV and a Round Robin quantum to compare results.
 
 The public demo is hosted independently of this computer. The project can also be served from the `docs/` directory on a static host.
+
+## Independent application
+
+This app has its own deployment and source repository. It has no shared navigation or runtime dependency on the other portfolio projects.
