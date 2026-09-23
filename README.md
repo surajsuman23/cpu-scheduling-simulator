@@ -67,7 +67,7 @@ python3 -m http.server 8080 --directory docs
 
 Open http://localhost:8080. Serve these files over HTTP or HTTPS; opening `index.html` directly as a file does not support the worker and module imports.
 
-The online interface implements the same scheduling rules in JavaScript. Its process metrics and execution timelines were compared with `Scheduler.java` across 35 workloads and all three algorithms (105 comparisons). The original Java CLI remains the reference implementation. Enter a process CSV and a Round Robin quantum to compare results.
+The online interface implements the same scheduling rules in JavaScript. Its process metrics and execution timelines were compared with `Scheduler.java` across 35 workloads and all three algorithms (105 comparisons). The original Java CLI remains the reference implementation. Edit the process table or choose a preset, adjust the Round Robin quantum, and compare algorithms. The interface includes a proportional Gantt timeline, exact execution intervals, per-process metrics, and a full JSON download. See `OPERATIONS.md` for browser checks and monitoring.
 
 The public demo is hosted independently of this computer. The project can also be served from the `docs/` directory on a static host.
 
