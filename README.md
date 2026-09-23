@@ -62,10 +62,11 @@ This is an algorithm simulator, not an operating-system kernel scheduler or a be
 The `docs/` folder contains a standalone browser interface. To run it locally from the repository root:
 
 ```sh
-python3 -m http.server 8080 --directory docs
+npm ci
+npm start
 ```
 
-Open http://localhost:8080. Serve these files over HTTP or HTTPS; opening `index.html` directly as a file does not support the worker and module imports.
+Open http://localhost:8211. Serve these files over HTTP or HTTPS; opening `index.html` directly as a file does not support the worker and module imports.
 
 The online interface implements the same scheduling rules in JavaScript. Its process metrics and execution timelines were compared with `Scheduler.java` across 35 workloads and all three algorithms (105 comparisons). The original Java CLI remains the reference implementation. Edit the process table or choose a preset, adjust the Round Robin quantum, and compare algorithms. The interface includes a proportional Gantt timeline, exact execution intervals, per-process metrics, and a full JSON download. See `OPERATIONS.md` for browser checks and monitoring.
 
@@ -74,3 +75,9 @@ The public demo is hosted independently of this computer. The project can also b
 ## Independent application
 
 This app has its own deployment and source repository. It has no shared navigation or runtime dependency on the other portfolio projects.
+
+## Independent server
+
+Run `npm ci` and `npm start` to serve frontend and API together on http://127.0.0.1:8211. Use `npm run build` for the Worker deployment bundle. The Node entry point is `server/local.mjs`; the hosted Worker entry point is `server/worker.mjs`. `npm run test:api` verifies its contracts. A non-root Dockerfile is included.
+
+The browser now submits workloads to `POST /api/v1/simulations`. The Java CLI remains the reference algorithm implementation. The hosted server calculates the result and does not save workloads.
